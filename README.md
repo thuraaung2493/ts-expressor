@@ -1,6 +1,14 @@
+<p align="center">
+  <img src="assets/branding/logo.png" alt="ts-expressor logo" width="120" />
+</p>
+
 # ts-expressor
 
 A CLI tool for generating TypeScript-based Express applications focuses on API development. Additionally include file generating commands for `Controller` class, `Validation Schema`, and `Repository` class.
+
+![ts-expressor — an open-source project by Thura Aung](assets/branding/social-preview.jpg)
+
+An open-source project by [Thura Aung](https://thuraaung2493.github.io/).
 
 ## Installation
 

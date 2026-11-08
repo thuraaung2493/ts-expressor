@@ -75,7 +75,7 @@ const makeController = () => {
 
   make
     .description(
-      'Create a new controller class. Example: expressor make:controller user.'
+      'Create a new controller class. Example: ts-expressor make:controller user.'
     )
     .usage('[options] <name>')
     .argument('[name]', 'Controller name')

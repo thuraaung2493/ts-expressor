@@ -80,7 +80,7 @@ const makeRepository = () => {
 
   make
     .description(
-      'Create a new repository class. Example: expressor make:repository user.'
+      'Create a new repository class. Example: ts-expressor make:repository user.'
     )
     .usage('[options] <name>')
     .argument('[name]', 'Repository name')

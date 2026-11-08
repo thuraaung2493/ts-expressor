@@ -1,0 +1,59 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: npm-release
+  cancel-in-progress: false
+
+jobs:
+  checks:
+    uses: ./.github/workflows/ci.yml
+
+  publish:
+    needs: checks
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - name: Use an npm version supporting trusted publishing
+        run: npm install --global npm@11
+      - name: Validate release version
+        run: node scripts/check-release.mjs "$GITHUB_REF_NAME"
+      - name: Require a published stable template release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TEMPLATE_TAG=$(node -p "'v' + require('./package.json').template.version")
+          gh release view "$TEMPLATE_TAG" --repo thuraaung2493/express-app-template --json isDraft,isPrerelease --jq 'if .isDraft or .isPrerelease then error("Template must be a published stable release") else . end'
+      - run: npm ci
+      - name: Pack and check whether this exact version is already published
+        id: package
+        run: |
+          npm pack --json > "$RUNNER_TEMP/package.json"
+          node scripts/prepare-publish.mjs "$RUNNER_TEMP/package.json"
+      - name: Publish to npm with OIDC
+        if: steps.package.outputs.publish == 'true'
+        env:
+          PACKAGE_ARCHIVE: ${{ steps.package.outputs.archive }}
+        run: npm publish "$PACKAGE_ARCHIVE" --access public --provenance
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY"; then
+            gh release create "$GITHUB_REF_NAME" --verify-tag --generate-notes --repo "$GITHUB_REPOSITORY"
+          fi

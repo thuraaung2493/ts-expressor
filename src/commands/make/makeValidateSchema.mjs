@@ -73,7 +73,7 @@ const makeValidateSchema = () => {
 
   make
     .description(
-      'Create a new validate schema file. Example: expressor make:schema user.'
+      'Create a new validate schema file. Example: ts-expressor make:schema user.'
     )
     .usage('[options] <name>')
     .argument('[name]', 'Validate schema name')

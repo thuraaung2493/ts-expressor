@@ -1,10 +1,33 @@
 {
-  "name": "ts-expressor",
-  "version": "0.0.2",
+  "name": "@thuraaung2493/ts-expressor",
+  "version": "0.0.3",
   "main": "index.mjs",
   "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node --test test/*.test.mjs",
+    "test:template": "node scripts/test-template.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/thuraaung2493/ts-expressor.git"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "RELEASING.md",
+    "index.mjs",
+    "src/",
+    "templates/",
+    "assets/branding/logo.png",
+    "assets/branding/social-preview.jpg"
+  ],
+  "template": {
+    "repository": "https://github.com/thuraaung2493/express-app-template.git",
+    "version": "0.0.1"
   },
   "bin": {
     "ts-expressor": "./index.mjs"

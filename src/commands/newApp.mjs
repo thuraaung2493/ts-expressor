@@ -2,16 +2,14 @@ import { input } from '@inquirer/prompts';
 import cp from 'child_process';
 import { Command } from 'commander';
 import figlet from 'figlet';
-import { existsSync, mkdirSync } from 'node:fs';
-import { rename, rm, unlink } from 'node:fs/promises';
+import { mkdir, readFile, rename, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import util from 'node:util';
 import ora from 'ora';
 import { errorLog, log } from '../logs.mjs';
+import packageInfo from '../package.mjs';
 
-const exec = util.promisify(cp.exec);
-
-const currentPath = process.cwd();
+const execFile = util.promisify(cp.execFile);
 
 const newApp = () => {
   const newAppCommand = new Command('new');
@@ -34,17 +32,21 @@ const action = async (arg) => {
   );
   const name = await getAppName(arg);
 
-  if (!name) {
-    errorLog(`Error: Application can't create without name.`);
-    process.exit(1);
+  if (!name || !/^[a-zA-Z0-9][a-zA-Z0-9_-]*$/.test(name)) {
+    errorLog('Use an application name containing only letters, numbers, hyphens, or underscores, starting with a letter or number.');
+    process.exitCode = 1;
+    return;
   }
 
   log(`🚀 Creating ${name}...`);
 
+  let appPath;
   try {
-    const appPath = createDir(name);
+    const targetPath = join(process.cwd(), name);
+    await mkdir(targetPath);
+    appPath = targetPath;
 
-    await gitClone({ appName: name });
+    await gitClone(appPath);
 
     await setupFiles(appPath);
 
@@ -53,7 +55,10 @@ const action = async (arg) => {
     output(name);
   } catch (error) {
     errorLog(`Failed! error: ${error.message}`);
-    await cleanup(name);
+    if (appPath) {
+      await rm(appPath, { recursive: true, force: true });
+    }
+    process.exitCode = 1;
   }
 };
 
@@ -70,51 +75,46 @@ const getAppName = async (name) => {
   }
 };
 
-const gitClone = async ({ appName }) => {
-  const gitRepo = 'https://github.com/thuraaung2493/express-app-template.git';
-
-  const spinner = ora('Downloading files ...').start();
-
-  await exec(`git clone --depth 1 ${gitRepo} ${appName} --quiet`);
-
-  spinner.succeed();
+const gitClone = async (appPath) => {
+  const { repository, version } = packageInfo.template;
+  await withSpinner(`Downloading template v${version} ...`, async () => {
+    await execFile('git', [
+      'clone', '--depth', '1', '--branch', `v${version}`, '--single-branch',
+      '--quiet', repository, appPath,
+    ]);
+    const templatePackage = JSON.parse(
+      await readFile(join(appPath, 'package.json'), 'utf8')
+    );
+    if (templatePackage.version !== version) {
+      throw new Error(`Template version mismatch: expected ${version}, received ${templatePackage.version}.`);
+    }
+  });
 };
 
 const setupFiles = async (appPath) => {
-  const spinner = ora('Setting up files ...').start();
-  const rmGit = rm(join(appPath, '.git'), { recursive: true, force: true });
-  const rmPnpmLock = unlink(join(appPath, 'pnpm-lock.yaml'));
-  const renameEnv = rename(
-    join(appPath, '.env.example'),
-    join(appPath, '.env')
-  );
-
-  Promise.all([rmGit, rmPnpmLock, renameEnv]);
-  spinner.succeed();
+  await withSpinner('Setting up files ...', async () => {
+    await rm(join(appPath, '.git'), { recursive: true, force: true });
+    await rm(join(appPath, '.github'), { recursive: true, force: true });
+    await rm(join(appPath, 'pnpm-lock.yaml'), { force: true });
+    await rename(join(appPath, '.env.example'), join(appPath, '.env'));
+  });
 };
 
 const installPackage = async (appPath) => {
-  const spinner = ora('Installing dependencies ...').start();
-
-  await exec(`cd ${appPath} && npm install`);
-
-  spinner.succeed();
+  await withSpinner('Installing dependencies ...', () =>
+    execFile('npm', ['ci'], { cwd: appPath })
+  );
 };
 
-const createDir = (appName) => {
-  const appPath = join(currentPath, appName);
-
-  if (!existsSync(appPath)) {
-    mkdirSync(appPath);
+const withSpinner = async (message, task) => {
+  const spinner = ora(message).start();
+  try {
+    await task();
+    spinner.succeed();
+  } catch (error) {
+    spinner.fail();
+    throw error;
   }
-
-  return appPath;
-};
-
-const cleanup = async (appName) => {
-  const appPath = join(currentPath, appName);
-
-  await rm(appPath, { recursive: true, force: true });
 };
 
 const output = (name) => {

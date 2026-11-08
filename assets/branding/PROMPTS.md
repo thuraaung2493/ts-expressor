@@ -28,6 +28,6 @@ Top label: "THURA AUNG / OPEN SOURCE"
 Large main title: "ts-expressor"
 Subtitle: "TypeScript API scaffolding"
 Supporting line: "Express apps · Controllers · Repositories · Schemas"
-Command capsule: "npx ts-expressor new my-api"
+Command capsule: "npx @thuraaung2493/ts-expressor new my-api"
 Footer: "github.com/thuraaung2493/ts-expressor"
 Render all text accurately and legibly, especially ts-expressor with its hyphen. No extra logos, badges, versions, claims, watermark or mockup. The final deliverable is one complete ready-to-upload social card matching the sibling's brand family.

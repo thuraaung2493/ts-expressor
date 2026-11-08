@@ -1,126 +1,407 @@
-# Releasing the CLI and template
+# Releasing the CLI and Template
 
-The npm package is `@thuraaung2493/ts-expressor`. Its executable is `ts-expressor`, and its GitHub repository remains `thuraaung2493/ts-expressor`.
+This document describes the release process for `@thuraaung2493/ts-expressor` and its companion `express-app-template` repository.
 
-The next CLI version is **0.0.3**, paired with template **v0.0.1**. The old unscoped `ts-expressor@0.0.2` remains a separate npm package; publishing the scoped package does not update existing installations of the old one.
+The release process uses semantic versioning, GitHub Actions, npm trusted publishing, and immutable Git tags.
 
-## How the repositories work together
+## Repositories
 
-- Each repository has its own version in `package.json` and `package-lock.json`.
-- The CLI records its compatible template version in `package.json` under `template.version` and clones the matching `vX.Y.Z` tag.
-- The template's npm lockfile fixes the dependencies installed by the CLI's `npm ci` step.
-- PRs and pushes to `main` run CI. Stable version tags run release workflows after repeating CI.
-- The template release workflow builds and checks the API with MySQL, then creates a GitHub release.
-- The CLI release workflow tests the packaged CLI against the pinned template, requires its published stable GitHub release, publishes to npm, then creates the CLI's GitHub release.
+| Component | Repository                                                                    | Distribution    |
+| --------- | ----------------------------------------------------------------------------- | --------------- |
+| CLI       | [ts-expressor](https://github.com/thuraaung2493/ts-expressor)                 | npm             |
+| Template  | [express-app-template](https://github.com/thuraaung2493/express-app-template) | GitHub releases |
 
-Release related template changes first, then adopt that version in a CLI release. For CLI-only changes, keep the current template pin. Never move or delete tags that have been released; publish a new version to correct a release.
+The CLI package is published as `@thuraaung2493/ts-expressor`, and its executable remains `ts-expressor`.
 
-## Initial setup: template v0.0.1
+The old unscoped `ts-expressor` package is separate from the scoped package. Publishing the scoped package does not update the unscoped package.
 
-1. Commit and merge the template's workflows, npm lockfile, smoke checks, and build fix into `express-app-template/main`.
-2. Wait for its GitHub Actions CI to pass on that commit.
-3. From an up-to-date template checkout, tag and push the tested commit:
+## Versioning and Compatibility
 
-   ```bash
-   git tag -a v0.0.1 -m "Template v0.0.1"
-   git push origin v0.0.1
-   ```
+The CLI and template maintain independent versions.
 
-4. Wait for the template's Release workflow to finish and confirm that GitHub shows a published `v0.0.1` release. A tag alone is insufficient for the CLI's npm release gate.
+- Each repository defines its version in `package.json` and `package-lock.json`.
+- The CLI declares its compatible template version under `template.version` in `package.json`.
+- The CLI clones the template using the corresponding `vX.Y.Z` Git tag.
+- The template's `package-lock.json` determines the dependencies installed through `npm ci`.
+- Released Git tags must remain immutable.
 
-The CLI's compatibility job requires this tag, so publish the template before expecting the initial CLI CI run to pass.
+The CLI and template do not need matching version numbers.
 
-## Initial setup: npm authentication and the scoped package
+### Versioning rules
 
-Use an npm account with permission to publish under `@thuraaung2493`. GitHub and npm usernames are separate; confirm ownership on npm.
+| Change                               | Required action                           |
+| ------------------------------------ | ----------------------------------------- |
+| CLI bug fix                          | Patch CLI version                         |
+| CLI branding or documentation change | Patch CLI version                         |
+| CLI backward-compatible feature      | Minor CLI version                         |
+| CLI breaking change                  | Major CLI version                         |
+| Template bug fix                     | Patch template version                    |
+| Template backward-compatible feature | Minor template version                    |
+| Template breaking change             | Major template version                    |
+| CLI adopts a new template release    | Update `template.version` and release CLI |
 
-1. Commit and merge the CLI changes, keeping version `0.0.3`. Wait for CI, including the template compatibility job, to pass.
-2. In that exact CLI checkout, log in to npm and complete the browser/2FA flow:
+During the `0.x` development phase, choose version increments deliberately because incompatible changes can still occur between minor versions.
 
-   ```bash
-   npm login --scope=@thuraaung2493 --registry=https://registry.npmjs.org
-   npm whoami
-   ```
+For CLI-only changes, do not change `template.version`.
 
-3. Verify the package locally and perform the first publish to create the new scoped package:
+When the template changes, release the template first and then update the CLI's compatibility pin.
 
-   ```bash
-   npm ci
-   npm test
-   npm run test:template
-   npm publish --access public
-   ```
+## Release Architecture
 
-   This publishes `@thuraaung2493/ts-expressor@0.0.3`, not the old unscoped package. A scoped public package requires public access; `publishConfig.access` is also set to `public` in the manifest. See [npm's scoped publishing instructions](https://docs.npmjs.com/creating-and-publishing-scoped-public-packages/).
+Both repositories use GitHub Actions for continuous integration and releases.
 
-4. Open the new [package page on npm](https://www.npmjs.com/package/@thuraaung2493/ts-expressor), go to Settings, and add a GitHub Actions trusted publisher with these exact values:
+### Continuous integration
 
-   | Setting | Value |
-   | --- | --- |
-   | Organization or user | `thuraaung2493` |
-   | Repository | `ts-expressor` |
-   | Workflow filename | `release.yml` |
-   | Environment | Leave empty; the workflow does not use a GitHub environment. |
-   | Allowed action | Allow direct `npm publish`. |
+Pull requests and pushes to `main` run CI.
 
-   The package must exist before configuring its trusted publisher. The workflow grants `id-token: write` and uses Node.js 24 with npm 11. No `NPM_TOKEN` secret is needed for subsequent releases. See [npm's trusted publishing documentation](https://docs.npmjs.com/trusted-publishers/).
+The CLI CI validates the CLI and checks compatibility with its pinned template.
 
-5. Tag the same committed contents you published, then push the tag:
+The template CI validates Prisma, builds the application, and runs API smoke tests against MySQL.
 
-   ```bash
-   git tag -a v0.0.3 -m "Release @thuraaung2493/ts-expressor 0.0.3"
-   git push origin v0.0.3
-   ```
+### Release workflows
 
-   The workflow compares the packed archive's checksum with npm. It skips publishing if identical version `0.0.3` already exists and creates the GitHub release. Different contents under an existing version fail the workflow; bump the version instead.
+Stable Git tags following `vX.Y.Z` trigger the corresponding release workflow.
 
-6. The next new CLI version will publish through OIDC. Configure the trusted publisher shortly before that release: npm currently requires a newly configured publisher to complete its first successful publish within two days. If it expires, recreate it before the next release.
+The template release workflow:
 
-The first local publish uses your npm login and does not have CI provenance. New versions published by the workflow use OIDC and provenance.
+1. Runs CI.
+2. Validates the version against the package manifests.
+3. Creates a published GitHub release.
 
-## Subsequent releases
+The CLI release workflow:
 
-### When the template changes
+1. Runs CI.
+2. Validates the version against the package manifests.
+3. Requires a published stable release of the pinned template.
+4. Installs dependencies with `npm ci`.
+5. Packages the CLI and checks whether that exact version is already published.
+6. Publishes to npm using OIDC trusted publishing when the version is new.
+7. Creates a GitHub release.
 
-In `express-app-template`, make the changes and update the version:
+The workflows do not support prerelease tags such as `v1.0.0-beta.1`.
+
+## Prerequisites
+
+Before releasing either repository:
+
+- Have permission to push to the repository and create release tags.
+- Ensure the intended changes are merged into `main`.
+- Ensure CI passes on the intended release commit.
+- Ensure `package.json` and `package-lock.json` have matching versions.
+- Ensure the working tree is clean before tagging.
+- Verify the required template release exists before releasing the CLI.
+
+For CLI publishing, the npm package must have a valid trusted-publisher configuration.
+
+## npm Trusted Publishing
+
+The CLI uses npm trusted publishing with GitHub Actions and OpenID Connect (OIDC).
+
+Publishing through GitHub Actions does not require an `NPM_TOKEN` secret.
+
+### Configuration
+
+Open the [npm package settings](https://www.npmjs.com/package/@thuraaung2493/ts-expressor) and configure a GitHub Actions trusted publisher.
+
+| Setting              | Value                      |
+| -------------------- | -------------------------- |
+| Organization or user | `thuraaung2493`            |
+| Repository           | `ts-expressor`             |
+| Workflow filename    | `release.yml`              |
+| Environment          | Leave empty                |
+| Allowed action       | Allow direct `npm publish` |
+
+The `.github/workflows/release.yml` workflow grants `id-token: write`, uses Node.js 24, and installs npm 11.
+
+The package must already exist on npm before its trusted publisher can be configured.
+
+A new trusted-publisher configuration must complete its first successful publish within two days. If it expires, delete the expired configuration and create a new one before releasing.
+
+After the first successful OIDC publish, the validated configuration can be reused for subsequent releases.
+
+See the [npm trusted publishing documentation](https://docs.npmjs.com/trusted-publishers/) for details.
+
+## Releasing the CLI
+
+Use this process for CLI changes, including code, features, bug fixes, documentation, and branding.
+
+### 1. Update the version
+
+From the `ts-expressor` repository, select the appropriate semantic version increment.
+
+For a patch release:
 
 ```bash
 npm version patch --no-git-tag-version
 ```
 
-Commit and merge the changed files, including both package files. After CI passes, create and push the matching tag. For example, if the new template version is `0.0.2`:
+For a minor release:
 
 ```bash
-git tag -a v0.0.2 -m "Template v0.0.2"
-git push origin v0.0.2
+npm version minor --no-git-tag-version
 ```
 
-Wait for its GitHub release, then update the CLI's `template.version` to `0.0.2`, update the README compatibility table, and release the CLI as described below. A template release does not automatically change published CLI versions.
-
-### Release the CLI
-
-In `ts-expressor`, update the version and run checks:
+For a major release:
 
 ```bash
-npm version patch --no-git-tag-version
+npm version major --no-git-tag-version
+```
+
+This updates `package.json` and `package-lock.json` without automatically creating a Git tag.
+
+For CLI-only changes, leave `template.version` unchanged.
+
+### 2. Run local checks
+
+```bash
+npm ci
 npm test
 npm run test:template
+npm pack --dry-run
 ```
 
-Commit and merge the changes, including both package files. After CI passes, tag that commit with the version in `package.json`. For the next patch after `0.0.3`:
+Inspect the package contents before releasing.
+
+If branding assets have changed, ensure the package includes the expected files:
+
+- `assets/branding/logo.png`
+- `assets/branding/social-preview.jpg`
+
+Review all files included in the package and exclude unintended or sensitive files.
+
+### 3. Commit and merge
+
+Commit the changes, including both package manifests.
 
 ```bash
-git tag -a v0.0.4 -m "Release v0.0.4"
-git push origin v0.0.4
+git status
+git add package.json package-lock.json
 ```
 
-GitHub Actions handles npm publishing and GitHub release creation. Use stable `vX.Y.Z` tags; these workflows intentionally reject prerelease version tags.
+Stage all other intended changes, including source files, assets, and documentation.
 
-## If a release fails
+```bash
+git commit -m "chore: prepare CLI release"
+```
 
-- Fix failed CI checks before publishing a new version. Do not retarget a released template tag.
-- For npm authentication failures, check the trusted publisher's case-sensitive repository and workflow filename, its expiry, and direct-publish permission.
-- Rerun the failed workflow for temporary service errors. An already published npm version is accepted only when the new archive's checksum matches; release creation also tolerates an existing GitHub release.
-- If a published package needs a fix, bump the package version, test it, and publish a new tag. npm versions cannot be overwritten.
+Push the changes and merge them into `main` through the normal repository workflow.
 
-Protect `main` with required CI checks and restrict changes to release tags using GitHub repository rulesets. Release tags are the compatibility contract for published CLI versions.
+Wait until all required CI checks pass.
+
+### 4. Create the release tag
+
+Update the local checkout to the tested commit on `main`.
+
+```bash
+git checkout main
+git pull --ff-only origin main
+```
+
+Read the version directly from `package.json`.
+
+```bash
+VERSION=$(node -p "require('./package.json').version")
+```
+
+Create and push the release tag.
+
+```bash
+git tag -a "v$VERSION" -m "Release v$VERSION"
+git push origin "v$VERSION"
+```
+
+The release tag must point to the exact commit that passed CI.
+
+Do not manually publish the CLI through npm for normal releases.
+
+### 5. Verify the release
+
+Open the [GitHub Actions page](https://github.com/thuraaung2493/ts-expressor/actions) and confirm the Release workflow succeeds.
+
+Verify the published npm version:
+
+```bash
+npm view @thuraaung2493/ts-expressor version
+```
+
+Inspect the npm distribution tags:
+
+```bash
+npm dist-tag ls @thuraaung2493/ts-expressor
+```
+
+Test the latest published CLI:
+
+```bash
+npx --yes @thuraaung2493/ts-expressor@latest --help
+```
+
+Confirm that the [GitHub release](https://github.com/thuraaung2493/ts-expressor/releases) exists and matches the published version.
+
+## Releasing the Template
+
+The template is distributed through GitHub releases and is not published to npm.
+
+### 1. Update the version
+
+From the `express-app-template` repository, update the version using the appropriate semantic version increment.
+
+For a patch release:
+
+```bash
+npm version patch --no-git-tag-version
+```
+
+For a minor or major release, use `minor` or `major` instead.
+
+Commit both package manifests with the template changes.
+
+### 2. Run local checks
+
+```bash
+npm ci
+npx prisma validate
+npm run build
+```
+
+Run the database-dependent smoke tests using a disposable MySQL database, following the template's README instructions.
+
+The CI workflow also validates the API and database migrations.
+
+### 3. Commit and merge
+
+Commit and push the intended changes.
+
+Merge them into `main` after review and wait until CI passes.
+
+### 4. Create the release tag
+
+From the tested commit on `main`:
+
+```bash
+git checkout main
+git pull --ff-only origin main
+VERSION=$(node -p "require('./package.json').version")
+git tag -a "v$VERSION" -m "Template v$VERSION"
+git push origin "v$VERSION"
+```
+
+The GitHub Actions release workflow will rerun CI, validate the release version, and create the GitHub release.
+
+### 5. Verify the template release
+
+Open the [template releases page](https://github.com/thuraaung2493/express-app-template/releases).
+
+Confirm that the release:
+
+- Matches the version in `package.json`.
+- Is published rather than a draft.
+- Is not marked as a prerelease.
+- Points to the tested commit.
+
+A Git tag without a published stable GitHub release is insufficient for the CLI release workflow.
+
+## Updating CLI Template Compatibility
+
+When the CLI needs to adopt a newer template release:
+
+1. Release the new template version.
+2. Confirm its GitHub release is published and stable.
+3. Update the CLI's `template.version` in `package.json`.
+4. Update the CLI README compatibility information.
+5. Run the CLI tests and template compatibility checks.
+6. Release a new CLI version using the normal CLI release process.
+
+The template version must match the existing release tag without its leading `v`.
+
+Do not update the template pin to an unreleased version.
+
+Previously published CLI versions retain their original template compatibility configuration.
+
+## Release Failures and Recovery
+
+### CI failure
+
+Fix the failing checks before publishing.
+
+If no release artifacts have been published, correct the changes on `main`, rerun CI, and create a new release tag for the corrected commit.
+
+Do not move a tag that has already been released.
+
+### npm authentication failure
+
+Check:
+
+- Trusted-publisher repository and workflow filename.
+- Case-sensitive configuration values.
+- Direct `npm publish` permission.
+- Configuration expiry.
+- GitHub Actions `id-token: write` permission.
+- Supported Node.js and npm versions.
+
+Do not add an npm publishing token to the workflow as a workaround.
+
+### Template compatibility failure
+
+Verify that the CLI's `template.version` refers to a published stable GitHub release.
+
+The corresponding template tag must exist and remain accessible.
+
+### npm version already exists
+
+The CLI workflow compares the packed archive checksum against the version already published on npm.
+
+If the archive is identical, publishing is skipped and GitHub release creation can continue.
+
+If the archive differs, the workflow fails because npm does not permit overwriting published versions.
+
+Publish a new version to correct an already published package.
+
+### Temporary service failure
+
+For temporary GitHub or npm service issues, rerun the failed workflow.
+
+The release process supports an already published matching npm archive and an existing GitHub release.
+
+Verify the artifacts before rerunning.
+
+### Published release requires correction
+
+If a published release contains incorrect files or behavior:
+
+1. Correct the issue in a new commit.
+2. Increment the affected package version.
+3. Run CI.
+4. Create and push a new release tag.
+
+Never replace published npm versions or move released Git tags.
+
+## Release Security
+
+- Protect `main` with required CI checks.
+- Restrict creation and modification of release tags using GitHub rulesets.
+- Use npm OIDC trusted publishing instead of long-lived publishing tokens.
+- Avoid publishing secrets or development-only files.
+- Review package contents before publishing.
+- Keep dependency lockfiles committed.
+- Do not reuse released version numbers.
+- Do not move or delete published release tags.
+
+## Release Checklist
+
+Before creating a CLI or template release:
+
+- [ ] Changes are complete and reviewed.
+- [ ] Package version is updated.
+- [ ] `package.json` and `package-lock.json` agree.
+- [ ] Template compatibility is correct.
+- [ ] Local checks pass.
+- [ ] Intended files are included.
+- [ ] Changes are merged into `main`.
+- [ ] CI passes on the intended commit.
+- [ ] Trusted publishing is configured if releasing the CLI.
+- [ ] Release tag matches the package version.
+- [ ] Release workflow succeeds.
+- [ ] Published artifacts are verified.
+
+Release tags define the compatibility contract between published CLI versions and their corresponding template releases.

@@ -39,10 +39,14 @@ npx @thuraaung2493/ts-expressor --help
 
 Or install it globally:
 
+<!-- installation-command:start -->
+
 ```bash
 npm install -g @thuraaung2493/ts-expressor
 ts-expressor --help
 ```
+
+<!-- installation-command:end -->
 
 The examples below use `npx @thuraaung2493/ts-expressor`. With a global installation, you can use `ts-expressor` in its place.
 

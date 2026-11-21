@@ -1,0 +1,83 @@
+{
+  "sections": [
+    {
+      "label": "Getting started",
+      "items": [
+        {
+          "label": "Overview",
+          "path": "README.md"
+        },
+        {
+          "label": "Requirements",
+          "path": "README.md",
+          "anchor": "requirements"
+        },
+        {
+          "label": "Installation",
+          "path": "README.md",
+          "anchor": "installation"
+        },
+        {
+          "label": "Quick start",
+          "path": "README.md",
+          "anchor": "quick-start"
+        }
+      ]
+    },
+    {
+      "label": "Guides",
+      "items": [
+        {
+          "label": "Application structure",
+          "path": "README.md",
+          "anchor": "generated-application-structure"
+        },
+        {
+          "label": "Generate controllers",
+          "path": "README.md",
+          "anchor": "generate-a-controller"
+        },
+        {
+          "label": "Generate repositories",
+          "path": "README.md",
+          "anchor": "generate-a-repository"
+        },
+        {
+          "label": "Generate validation schemas",
+          "path": "README.md",
+          "anchor": "generate-a-validation-schema"
+        },
+        {
+          "label": "Naming and file behavior",
+          "path": "README.md",
+          "anchor": "naming-and-file-behavior"
+        }
+      ]
+    },
+    {
+      "label": "Reference",
+      "items": [
+        {
+          "label": "Command reference",
+          "path": "README.md",
+          "anchor": "command-reference"
+        },
+        {
+          "label": "Troubleshooting",
+          "path": "README.md",
+          "anchor": "troubleshooting"
+        },
+        {
+          "label": "Local development",
+          "path": "README.md",
+          "anchor": "local-development"
+        },
+        {
+          "label": "Releases",
+          "path": "README.md",
+          "anchor": "releases-and-compatibility"
+        }
+      ]
+    }
+  ]
+}
